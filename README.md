@@ -232,39 +232,186 @@ c:\esm2-rl-designer\
 
 ---
 
-## Next Steps
+## Comprehensive Metrics & Tracking
 
-Upon completion of the current cell (PPO Trainer), the following components are planned:
+### Core Training Metrics (Per-Epoch & Real-Time)
 
-1. **Visualization & Analysis**
-   - Plot training curves (reward, loss, KL divergence)
-   - Sequence property distribution analysis
-   - Reward component heatmaps
+#### Objective Function Components
+| Metric | Description | Formula | Tracked |
+|--------|-------------|---------|----------|
+| **Total Reward** | Combined multi-objective signal | 1.0×tanh(S) + 0.5×tanh(D) + 0.5×tanh(C) |  Every batch |
+| **Stability Reward** | Structural integrity proxy | hydro_frac + charge_balance + ss_propensity - repeats |  Per-epoch avg |
+| **Diversity Reward** | Sequence novelty & exploration | shannon_entropy + ref_distance |  Per-epoch avg |
+| **Constraint Reward** | Design rule satisfaction | length_penalty + motif_score + rare_aa_control |  Per-epoch avg |
 
-2. **Inference & Evaluation**
-   - Generate test sequences from trained model
-   - Compare against baseline sequences
-   - Compute structural metrics (if 3D predictor available)
+#### Optimization Metrics
+| Metric | Description | Range | Tracked |
+|--------|-------------|-------|----------|
+| **Policy Loss** | -mean(log_prob × reward) | [0, ∞) |  Every batch |
+| **KL Divergence** | KL(model \| reference) | [0, ∞) |  Every batch |
+| **Total Loss** | policy_loss + 0.1×KL_divergence | [0, ∞) |  Per-epoch avg |
+| **Learning Rate** | Cosine annealing with warmup | [0, 5e-5] |  Every batch |
+| **Gradient Norm** | Max gradient clipping value | [0, 1.0] |  Per-step |
 
-3. **Model Checkpoint Saving**
-   - Save best LoRA adapters
-   - Export trained model for inference
-   - Version control with WandB artifacts
+#### Sequence Properties
+| Metric | Description | Target | Tracked |
+|--------|-------------|--------|----------|
+| **Avg Sequence Length** | Mean length of generated sequences | 48 ± 16 | ✅ Per-epoch |
+| **Max Consecutive Repeat** | Longest consecutive AA | < 3 | ✅ Per-sequence |
+| **Hydrophobic Fraction** | % hydrophobic AAs | ~35% | ✅ Per-sequence |
+| **Charge Balance** | \|positive - negative\| / length | < 0.2 | ✅ Per-sequence |
+| **Rare AA Frequency** | (W + C + M) / length | < 15% | ✅ Per-sequence |
 
-4. **Advanced Features** (Optional)
-   - Multi-GPU distributed training
-   - Curriculum learning for progressively harder constraints
-   - Integration with structure prediction (OmegaFold, ESMFold)
+### Evaluation Metrics (Post-Training)
+
+#### Per-Sequence Analysis
+- **Individual Rewards:** Total, stability, diversity, constraint scores for each generated sequence
+- **Length Distribution:** Histogram of all generated sequence lengths (target: 32-64 AA)
+- **AA Composition:** Frequency bar chart across all 20 standard amino acids
+- **Reward Scatter:** Per-sequence reward visualization with mean/std baselines
+- **Component Breakdown:** (S, D, C) contribution to total reward per sequence
+
+#### Outputs Saved
+| File | Content | Format |
+|------|---------|--------|
+| `rl_training_results.png` | 6-panel visualization (see below) | PNG, 300 DPI |
+| `reward_distribution.png` | Scatter plot with color-coded rewards | PNG, 300 DPI |
+| `generated_sequences.csv` | 20 sequences + all metrics | CSV |
+| `training_metrics.csv` | Per-epoch aggregated metrics | CSV |
+| `esm2_rl_finetuned/` | Fine-tuned model + LoRA adapters | PyTorch |
+
+### Visualization Panels (rl_training_results.png)
+
+**Panel 1: Average Total Reward (Top-Left)**
+- Line plot: Reward trend across epochs
+- Markers: One point per epoch
+- Interpretation: Upward trend indicates successful policy learning
+
+**Panel 2: Total Loss (Top-Right)**
+- Line plot: Combined loss (policy + KL penalty)
+- Color: Red for emphasis on optimization
+- Interpretation: Downward trend = convergence; sharp drops = learning rate impact
+
+**Panel 3: KL Divergence (Middle-Left)**
+- Line plot: Distance from reference model
+- Color: Orange
+- Interpretation: Lower values prevent mode collapse; high values = divergence risk
+
+**Panel 4: Reward Components Over Time (Middle-Right)**
+- Multi-line plot: Stability (○), Diversity (□), Constraint (△)
+- Interpretation: Trade-offs between objectives; which component dominates training
+
+**Panel 5: Sequence Length Distribution (Bottom-Left)**
+- Histogram: Count vs. sequence length
+- Red dashed line: Mean length
+- Interpretation: Clustering indicates controlled generation; spread = diversity
+
+**Panel 6: Amino Acid Composition (Bottom-Right)**
+- Bar chart: Frequency of each of 20 AAs
+- Color: Light coral for visibility
+- Interpretation: Composition bias; enrichment of certain AAs due to reward signals
+
+### Additional Visualization: Reward Distribution (reward_distribution.png)
+
+**Scatter Plot Analysis**
+- **X-axis:** Sequence index (0-19 generated)
+- **Y-axis:** Total reward per sequence
+- **Color Map:** Viridis (blue=low reward, yellow=high reward)
+- **Red Line:** Mean reward across all 20 sequences
+- **Interpretation:** Spread indicates reward variance; tight clustering = consistent generation quality
+
+### WandB Logging
+
+If `use_wandb=true`, the following metrics stream to the WandB dashboard in real-time:
+
+```
+wandb.log({
+    'reward': float,              # Per-batch mean reward
+    'policy_loss': float,         # Per-batch policy loss
+    'kl_divergence': float,       # Per-batch KL divergence
+    'total_loss': float,          # Per-batch total loss
+    'learning_rate': float,       # Current LR from scheduler
+    'epoch': int                  # Current epoch number
+}, step=global_step)
+```
+
+### Metric Summary Report (Printed at Epoch End)
+
+After each epoch:
+```
+Epoch 1 Summary:
+  Avg Reward: 0.3240
+  Avg Loss: 0.4563
+  Avg KL: 0.0875
+  Stability: 0.2156
+  Diversity: 0.1984
+  Constraint: 0.1859
+  
+  Sample sequences:
+    1. MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSR
+    2. LVIGKVTDGAKGIIVVSKDH...
+    3. AVILMFWYAVILMFWYAVIL...
+```
+
+---
+
+## Work in Progress
+
+**Current Status:** Core training pipeline implemented and tested. The following components are still under development:
+
+1. **Interactive Visualization Tool** (Coming Soon)
+   - Real-time WandB dashboard integration
+   - Multi-objective trade-off curves
+   - Interactive sequence property explorer
+   - Model prediction confidence visualization
+
+2. **Advanced Inference & Evaluation**
+   - Systematic generation test suite
+   - Comparative analysis against baseline sequences
+   - Structural property prediction (if ESMFold/OmegaFold available)
+   - Binding affinity estimation
+
+3. **Model Checkpointing & Deployment**
+   - Best-model checkpoint saving during training
+   - LoRA adapter export for inference-only mode
+   - Model versioning with WandB artifacts
+   - Inference pipeline optimization
+
+4. **Advanced Training Features** (Optional)
+   - Multi-GPU distributed training with `torch.nn.DataParallel`
+   - Curriculum learning for progressive constraint tightening
+   - Ensemble training across multiple random seeds
+   - Adaptive reward weighting based on convergence
 
 ---
 
 ## System Requirements
 
-- **GPU:** NVIDIA GPU with 12GB+ VRAM (tested on V100, A100)
-- **RAM:** 32GB system RAM
-- **Python:** 3.9+
-- **CUDA:** 11.8+
-- **PyTorch:** 2.0+
+### Google Colab Free Tier (Primary Target)
+- **GPU:** NVIDIA T4 (15 GB VRAM) - Google Colab Free
+- **Compute Cores:** 2× Tesla T4 (optional: Colab Pro → A100 or V100)
+- **RAM:** 13 GB system RAM
+- **Storage:** ~20 GB (ESM-2 weights + outputs)
+- **Python:** 3.10+ (Colab default)
+- **Runtime:** ~45-60 minutes per 5 epochs on T4
+
+
+### Memory Optimization for Colab T4
+- **Model Size:** ESM-2 (650M) with LoRA = ~3 GB loaded
+- **Batch Size:** 4 (reduced from typical 16 for V100)
+- **Gradient Accumulation:** 4 steps (effective batch = 16)
+- **Precision:** FP32 for stability; FP16 reduces VRAM to ~2 GB (optional)
+- **Estimated Runtime:** ~50 min per epoch on T4 GPU
+
+### Installation in Colab
+
+```bash
+# Install dependencies
+!pip install torch transformers peft accelerate fair-esm wandb matplotlib pandas tqdm
+
+# Verify GPU
+!nvidia-smi
+```
 
 ---
 
@@ -301,6 +448,8 @@ Key metrics visible in WandB dashboard:
 
 ---
 
-**Last Updated:** January 19, 2026  
-**Current Progress:** Core training pipeline (Cells 1-18)  
-**Status:** Ready for training execution
+**Last Updated:** January 21, 2026  
+**Current Progress:** Core training pipeline complete (Cells 1-18) with comprehensive metrics & visualization  
+**Status:**  **WORK IN PROGRESS**  
+**Tested Environments:** Google Colab Free Tier (T4 GPU)
+**Metric Outputs:** 6-panel visualization + CSV exports + WandB streaming
