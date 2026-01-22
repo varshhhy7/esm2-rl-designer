@@ -5,7 +5,7 @@
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-orange)](https://huggingface.co/facebook/esm2_t33_650M_UR50D)
 [![LoRA](https://img.shields.io/badge/Parameter--Efficient-LoRA-green)](https://github.com/microsoft/LoRA)
 
-ESM2-RL Designer is a high-performance framework dedicated to de novo protein sequence design. It utilizes Meta AI's ESM-2 (650M) protein language model, fine-tuned through Reinforcement Learning (Proximal Policy Optimization) and LoRA (Low-Rank Adaptation) using PyTorch. The system is designed to generate protein sequences with specific, controllable biological properties.
+ESM2-RL Designer is a high-performance framework dedicated to the protein sequence design. It utilizes Meta AI's ESM-2 (650M) protein language model, fine-tuned through Reinforcement Learning (Proximal Policy Optimization) and LoRA (Low-Rank Adaptation) using PyTorch. The system is designed to generate protein sequences with specific, controllable biological properties.
 
 ---
 
